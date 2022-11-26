@@ -1,0 +1,62 @@
+When a packet is spawned at a router:
+    1.) The router has a known route to the destination:
+        - Set ROUTE_REQUEST to FALSE
+        - Set PATH_KNOWN to TRUE
+        - Randomly choose from known paths and add path to packet. Forward to next router
+    2.) The router does not have a known router to the destination:
+        - Set ROUTE_REQUEST to TRUE
+        - Set PATH_KNOWN to FALSE
+        - Forward to all immediately adjacent routers
+
+When a packet is received at a router that is not the destination:
+    1.) ROUTE_REQUEST = TRUE, PATH_KNOWN = TRUE:
+        - Throw an error. This should not happen
+    2.) ROUTE_REQUEST = TRUE, PATH_KNOWN = FALSE:
+        - Check if the current router knows a path to the destination:
+            If the current router knows a path to the destination:
+                - Set ROUTE_REQUEST to FALSE
+                - Set PATH_KNOWN to TRUE
+                - Add path to packet. Forward to next router
+                - Create new packet to send to the original source router:
+                    - Set ROUTE_REQUEST to FALSE
+                    - Set PATH_KNOWN to TRUE
+                    - Set path to the known path to destination and the path so far traveled and send back to original source
+            If the current router does not know a path to destination:
+                - Append current rtouer information
+                - Forward to all immediately adjacent routers.
+    3.) ROUTE_REQUEST = FALSE, PATH_KNOWN = TRUE:
+        - Forward to next router
+    4.) ROUTE_REQUEST = FALSE, PATH_KNOWN = FALSE:
+        - Throw an error. This should not happen
+
+When a packet is received at a destination router:
+    1.) ROUTE_REQUEST = TRUE, PATH_KNOWN = TRUE:
+        - Throw an error. This should not happen
+    2.) ROUTE_REQUEST = TRUE, PATH_KNOWN = FALSE:
+        - Create new packet to send to original source router:
+            - Set ROUTE_REQUEST = FALSE
+            - Set PATH_KNOWN = TRUE
+            - Set path to the backwards of the path of the packet just received
+        - Add packet to completed queue.
+    3.) ROUTE_REQUEST = FALSE, PATH_KNOWN = TRUE:
+        - Add packet to completed queue.
+    4.) ROUTE_REQUEST = FALSE, PATH_KNOWN = FALSE:
+        - Thrown an error. This should not happen
+
+General Notes:
+    - It is possible, and likely, that a packet at any given point, or at its destination, will have a hop count differing from its path information.
+        This happens because path information can be treated as either directions, travel history, or both, depending on the settings of flags.
+            
+
+Learning Paths:
+    - A router should take any received packets and attempt to learn as many new paths as possible from it
+    - A router should maintain the shortest 2 unique paths to any destination
+    - While learning paths, a router should check if there are two paths held
+        - If there are not two paths held, then the router should add the new path assuming it is unique if another path is already held
+        - If there are two paths held, the router should check the length of both. If the new path is shorter than one of the paths, it should be replaced with the new path
+
+Packet Types Flags
+    ROUTE_REQUEST - If TRUE, the destination router should send a packet back to the source upon receipt. The path will be known since the destination router has received the packet
+    PATH_KNOWN - If TRUE, the router should not broadcast the packet to neighbors. Instead, it should simply forward packet to the next router indicated in the known path.
+               - If FALSE, the router should check if it knows a path to the destination. If it does, it should randomly choose from any paths it knows and add that path to the packet.
+                 If it adds a path to the packet, then it should set this flag to TRUE and forward to the next router in the path. Otherwise, broadcast this packet to all neighbors.
