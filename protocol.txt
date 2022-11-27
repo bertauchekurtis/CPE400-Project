@@ -47,7 +47,6 @@ General Notes:
     - It is possible, and likely, that a packet at any given point, or at its destination, will have a hop count differing from its path information.
         This happens because path information can be treated as either directions, travel history, or both, depending on the settings of flags.
             
-
 Learning Paths:
     - A router should take any received packets and attempt to learn as many new paths as possible from it
     - A router should maintain the shortest 2 unique paths to any destination
@@ -60,3 +59,31 @@ Packet Types Flags
     PATH_KNOWN - If TRUE, the router should not broadcast the packet to neighbors. Instead, it should simply forward packet to the next router indicated in the known path.
                - If FALSE, the router should check if it knows a path to the destination. If it does, it should randomly choose from any paths it knows and add that path to the packet.
                  If it adds a path to the packet, then it should set this flag to TRUE and forward to the next router in the path. Otherwise, broadcast this packet to all neighbors.
+
+What does a packet consist of?
+    Flags:
+        - ROUTE_REQUEST: T/F -> See protocol for usage
+        - PATH_KNOWN: T/F -> See protocol for usage
+    Information:
+        - Path Information: List of path information
+        - Place in path: This should be set to either:
+            a.) The current number of nodes in the list - 1 (Path not known)
+            b.) The index of the last visited node in the list (Path known)
+        - Source: String name of source router
+        - Destination: String name of destination router
+        - ID: integer packet id number
+    Tracking Information:
+        - Creation Time: Time in simulation that the packet was created
+        - Arrival Time: Time that packet reached the destination node
+        - Hop Count: Number of visited routers
+
+What does a router consist of?
+    Information:
+        - ID: A string for the name of the router
+        - Energy Level: A interger representing the amount of energy left in the router
+        - Immediate Neighbors: A list of strings of the names of the immediately adjacent neighbors of the router
+    Data:
+        - Path Tables: A list of dictionaries that hold the paths that the router has learned
+        - Buffer Queue: A list being used as a queue for the packets that the router has received and not yet processed
+        - Finished Queue: A place for the router to put packets that it is the receipent of once received until they can be analyzed for sim info later
+        
