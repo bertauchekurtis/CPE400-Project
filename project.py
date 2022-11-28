@@ -51,22 +51,40 @@ class Router:
             # print("\n")
 
             # now, destNode holds the node for the path in pathToDest
-            currentPaths = []
+            isNewPathUnique = True
+            emptyPathTableIndex = -1
+            longestStoredPath = -1
+            longestStoredPathIndex = -1
+            # get all of the current stored paths to that destNode
+            # this goes through all of the current stored paths
+            # at the end of this loop the following will be known:
+            #   isNewPathUnique will tell if the newPath is unique or already stored in the tables
+            #   longestStoredPath will tell the longest path that is currently stored (-1 if no paths stored)
+            #   emptyPathTableIndex will hold the index of the table that doesn't have a path (if there is one)
+            #   longestStoredPathIndex will tell where the index of the longest path is
             for y in range(NUM_BEST_PATHS):
-                if self.pathTables[y].get(destNode) is None:
-                   self.pathTables[y][destNode] = pathToDest
-                   break
+                if self.pathTables[y].get(destNode) is not None:
+                    thisPath = self.pathTables[y].get(destNode)
+                    if len(thisPath) > longestStoredPath:
+                        longestStoredPath = len(thisPath)
+                        longestStoredPathIndex = y
+                    if thisPath == pathToDest:
+                        isNewPathUnique = False
                 else:
-                    currentPaths.append(self.pathTables[y].get(destNode))
-            longestPath = len(currentPaths[0])
-            longestPathIndex = 0
-            for y in range(NUM_BEST_PATHS - 1):
-                if len(currentPaths[y + 1]) > longestPath: # need to also check list equality or this will just store the same short path 3 times
-                    longestPath = len(currentPaths[y + 1])
-                    longestPathIndex = y + 1
-            
+                    emptyPathTableIndex = y
 
-        
+            # if the path is unique and there is an empty table, we store it
+            # if the path is unique and there is not an empty table, we store it if it is shorter than one of the current paths
+            # otherwise, we don't store it
+            if (isNewPathUnique == True) and (emptyPathTableIndex != -1):
+                self.pathTables[emptyPathTableIndex][destNode] = pathToDest
+                #print("New path is unique") # debug
+            elif (isNewPathUnique == True) and (len(thisPath) < longestStoredPath):
+                self.pathTables[longestStoredPathIndex][destNode] = pathToDest
+                #print("New path is unique and shorter") # debug
+            else:
+                #print("New path is not shorter or unique, not stored") # debug
+            
 
     def getTopPacketAndHop(self):
         print("UH OH! Function \"getTopPacketAndHop\" not implemented!")
@@ -86,6 +104,10 @@ for x in file:
     globalView[x[0]] = x[1:]
 test = Router(1,2,3)
 test.learnPaths(['a','b','c','d'])
+test.learnPaths(['a','b','c','d'])
+test.learnPaths(['a','e','c','d'])
+test.learnPaths(['a','f','c','d'])
+test.learnPaths(['a','j','c','d'])
 pack = Packet(True, True, 1, 2, 3, 4, 5, 6)
 
 print(globalView["a"])
