@@ -61,7 +61,7 @@ class Router:
             longestPath = len(currentPaths[0])
             longestPathIndex = 0
             for y in range(NUM_BEST_PATHS - 1):
-                if len(currentPaths[y + 1]) > longestPath:
+                if len(currentPaths[y + 1]) > longestPath: # need to also check list equality or this will just store the same short path 3 times
                     longestPath = len(currentPaths[y + 1])
                     longestPathIndex = y + 1
             
