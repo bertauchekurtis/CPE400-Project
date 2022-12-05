@@ -49,10 +49,10 @@ General Notes:
             
 Learning Paths:
     - A router should take any received packets and attempt to learn as many new paths as possible from it
-    - A router should maintain the shortest 2 unique paths to any destination
-    - While learning paths, a router should check if there are two paths held
-        - If there are not two paths held, then the router should add the new path assuming it is unique if another path is already held
-        - If there are two paths held, the router should check the length of both. If the new path is shorter than one of the paths, it should be replaced with the new path
+    - A router should maintain the shortest n unique paths to any destination
+    - While learning paths, a router should check if there are n paths held
+        - If there are not n paths held, then the router should add the new path assuming it is unique if another path is already held
+        - If there are n paths held, the router should check the length of both. If the new path is shorter than one of the paths, it should be replaced with the new path
 
 Packet Types Flags
     ROUTE_REQUEST - If TRUE, the destination router should send a packet back to the source upon receipt. The path will be known since the destination router has received the packet
