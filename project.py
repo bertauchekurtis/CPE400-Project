@@ -8,6 +8,7 @@ DEFAULT_ENERGY_LEVEL = 5
 NETWORK_FILE = "network_one.csv"
 PACKET_FILE = "packets.csv"
 import random
+import sys
 
 class Packet:
     def __init__(self, ROUTE_REQUEST, PATH_KNOWN, pathInformation, placeInPath, sourceRouter, destinationRouter, id, creationTime):
