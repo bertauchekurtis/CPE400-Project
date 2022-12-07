@@ -3,13 +3,11 @@
 # project.py
 
 # libraries
-NUM_BEST_PATHS = 3
-DEFAULT_ENERGY_LEVEL = 20
-NETWORK_FILE = "network_one.csv"
-PACKET_FILE = "packets.csv"
 import random
 import sys
 import copy
+RANDOM_SEED = 10
+random.seed(RANDOM_SEED)
 
 class Packet:
     def __init__(self, ROUTE_REQUEST, PATH_KNOWN, pathInformation, placeInPath, sourceRouter, destinationRouter, id, creationTime):
@@ -167,6 +165,7 @@ class Router:
                             possiblePaths.append(self.pathTables[y].get(targetDestination))
                     if(len(possiblePaths) > 0):
                         # we know a possible path
+                        random.seed(RANDOM_SEED)
                         chosenPath = random.choice(possiblePaths)
                         returnPath = list.copy(chosenPath)
                         returnPath.reverse()
@@ -207,6 +206,7 @@ class Router:
 
 
         if(len(possiblePaths) > 0):
+            random.seed(RANDOM_SEED)
             chosenPath = random.choice(possiblePaths)
             mutable = list.copy(chosenPath)
             mutable.append(destinationRouter)
@@ -235,6 +235,17 @@ packetQueue = []
 statTrackList = []
 idcounter = 0
 currentTime = 0
+
+numArguments = len(sys.argv)
+if(numArguments != 5):
+    print("Error, incorrect number of command line arguments supplied. Proper usage:")
+    print("py project.py <network file> <packet file> <n> <default energy level>")
+    exit()
+
+NETWORK_FILE = sys.argv[1]
+PACKET_FILE = sys.argv[2]
+DEFAULT_ENERGY_LEVEL = int(sys.argv[4])
+NUM_BEST_PATHS = int(sys.argv[3])
 
 file = open(NETWORK_FILE, "r")
 
