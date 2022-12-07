@@ -1,5 +1,9 @@
-l,d
+l,d,q
 d,l,c
 c,d,b
 b,c,a
-a,b,t,r
+a,b,t
+q,l,p
+h,p,t
+t,h,a
+p,q,h

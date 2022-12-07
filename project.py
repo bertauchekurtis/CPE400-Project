@@ -4,11 +4,12 @@
 
 # libraries
 NUM_BEST_PATHS = 3
-DEFAULT_ENERGY_LEVEL = 5
+DEFAULT_ENERGY_LEVEL = 20
 NETWORK_FILE = "network_one.csv"
 PACKET_FILE = "packets.csv"
 import random
 import sys
+import copy
 
 class Packet:
     def __init__(self, ROUTE_REQUEST, PATH_KNOWN, pathInformation, placeInPath, sourceRouter, destinationRouter, id, creationTime):
@@ -80,11 +81,14 @@ class Router:
                 self.pathTables[emptyPathTableIndex][destNode] = pathToDest
             elif (isNewPathUnique == True) and (len(thisPath) < longestStoredPath):
                 self.pathTables[longestStoredPathIndex][destNode] = pathToDest
+
+
             
 
     def getTopPacket(self):
         if(len(self.bufferQueue) > 0):
             self.energyLevel -= 1
+            print("Energy level of " + self.id + " decremented from " + str(self.energyLevel + 1) + " to " + str(self.energyLevel))
             self.bufferQueue[0].hopCount += 1
             return self.bufferQueue.pop(0)
 
@@ -103,12 +107,17 @@ class Router:
         # determine if this is the detination
         if(newPacket.id in self.seenPackets):
             # already saw this packet
+            if(self.id not in newPacket.pathInformation):
+                self.learnPaths(newPacket.pathInformation)
+            #print("Router " + self.id + " has received packet " + str(newPacket.id) + " and is discarding it.")
             return
         else:
             self.seenPackets.append(newPacket.id)
+            #print("Router " + self.id + " has received packet " + str(newPacket.id) + " and is processing it.")
 
         if(newPacket.destinationRouter == self.id):
             # this is the destination router
+            #print("Router " + self.id + " has received packet " + str(newPacket.id) + " this is destination")
             if(newPacket.ROUTE_REQUEST == newPacket.PATH_KNOWN):
                 print("ERROR! Packet received with ROUTE_REQUEST = PATH_KNOWN")
             else:
@@ -188,20 +197,25 @@ class Router:
     def spawnNewPacket(self, destinationRouter, currentTime, idcounter):
         
         possiblePaths = []
+        print("Router " + self.id + " has spawned packet " + str(idcounter))
         self.seenPackets.append(idcounter)
 
         for y in range(NUM_BEST_PATHS):
             if self.pathTables[y].get(destinationRouter) is not None:
                 possiblePaths.append(self.pathTables[y].get(destinationRouter))
 
+
         if(len(possiblePaths) > 0):
             chosenPath = random.choice(possiblePaths)
             mutable = list.copy(chosenPath)
             mutable.append(destinationRouter)
             mutable.insert(0, self.id)
+            print("The chosen path is: ")
+            print(mutable)
             newPacket = Packet(False, True, mutable, 0, self.id, destinationRouter, idcounter, currentTime)
             self.bufferQueue.append(newPacket)
         else:
+            print("Chosen path not known")
             newPacket = Packet(True, False, [self.id], 0, self.id, destinationRouter, idcounter, currentTime)
             self.bufferQueue.append(newPacket)
 
@@ -264,8 +278,10 @@ while((anyBuffersHavePackets(routerList) or len(packetQueue) > 0) and networkAli
         packet = routerList[routerIndex].getTopPacket()
         for nextHop in listToSend:
             mapping = routerMapping.get(nextHop)
-            routerList[mapping].receivePacket(packet, currentTime, idcounter)
+            packetToSend = copy.deepcopy(packet)
+            routerList[mapping].receivePacket(packetToSend, currentTime, idcounter)
             idcounter += 1
+        del packet
     
     # check if any routers have died
     for router in routerList:
@@ -314,7 +330,3 @@ print("All routers had an initial energy level of " + str(DEFAULT_ENERGY_LEVEL))
 print("The average remaining energy level is " + str(sum(remainingEnergies)/len(routerList)))
 print("The highest remaining energy level is " + str(max(remainingEnergies)))
 print("The lowest remaining energy level is " + str(min(remainingEnergies)))
-
-
-
-
