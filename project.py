@@ -110,6 +110,7 @@ class Router:
             if(self.id not in newPacket.pathInformation):
                 self.learnPaths(newPacket.pathInformation)
             #print("Router " + self.id + " has received packet " + str(newPacket.id) + " and is discarding it.")
+            del newPacket
             return
         else:
             self.seenPackets.append(newPacket.id)
