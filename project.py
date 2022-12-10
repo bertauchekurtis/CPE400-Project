@@ -6,6 +6,7 @@
 import random
 import sys
 import copy
+import statistics
 RANDOM_SEED = 10
 random.seed(RANDOM_SEED)
 
@@ -21,6 +22,7 @@ class Packet:
         self.creationTime = creationTime
         self.arrivalTime = -1 # indicates the packet has not arrived yet
         self.hopCount = 0
+        self.delay = -1 # will be filled with the amount of delay when the packet arrives
 
         # now, do some error checking
         if(self.ROUTE_REQUEST == self.PATH_KNOWN):
@@ -39,7 +41,7 @@ class Router:
         self.seenPackets = []
 
         for x in range(NUM_BEST_PATHS):
-            self.pathTables.append(dict())
+            self.pathTables.append(dict()) # creates n dictionaries for the n shortest paths
 
     def learnPaths(self, path):
         mutablePathList = list.copy(path)
@@ -75,34 +77,19 @@ class Router:
             # if the path is unique and there is an empty table, we store it
             # if the path is unique and there is not an empty table, we store it if it is shorter than one of the current paths
             # otherwise, we don't store it
-            
-            
-
             if (isNewPathUnique == True) and (emptyPathTableIndex != -1):
                 self.pathTables[emptyPathTableIndex][destNode] = pathToDest
-                print("Router " + self.id + " learned a path to router " + destNode)
-                print(pathToDest)
-                
             elif (isNewPathUnique == True) and (len(pathToDest) < longestStoredPath):
                 self.pathTables[longestStoredPathIndex][destNode] = pathToDest
-                print("Router " + self.id + " learned a path to router " + destNode)
-                print(pathToDest)
-
-
-
-
-
-            
 
     def getTopPacket(self):
         if(len(self.bufferQueue) > 0):
             self.energyLevel -= 1
-            print("Energy level of " + self.id + " decremented from " + str(self.energyLevel + 1) + " to " + str(self.energyLevel))
             self.bufferQueue[0].hopCount += 1
             return self.bufferQueue.pop(0)
 
-
     def getTopPacketNextHop(self):
+        # if the path is known, we just return the next node in the path, otherwise, we return all of the neighbors for broadcasting
         if(len(self.bufferQueue) > 0):
             topPacket = self.bufferQueue[0]
             if(topPacket.PATH_KNOWN == True):
@@ -113,22 +100,28 @@ class Router:
 
 
     def receivePacket(self, newPacket, currentTime, idcounter):
+        
         # determine if this is the detination
         if(newPacket.id in self.seenPackets):
             # already saw this packet
             if(self.id not in newPacket.pathInformation):
                 self.learnPaths(newPacket.pathInformation)
-            #print("Router " + self.id + " has received packet " + str(newPacket.id) + " and is discarding it.")
             del newPacket
             return
         else:
             self.seenPackets.append(newPacket.id)
-            #print("Router " + self.id + " has received packet " + str(newPacket.id) + " and is processing it.")
 
         if(newPacket.destinationRouter == self.id):
             # this is the destination router
-            print("Router " + self.id + " has received packet " + str(newPacket.id) + " this is destination")
-            print(newPacket.pathInformation)
+            # create a copy of the packet to be able to track statistics of the simulation
+            trackingPacket = copy.deepcopy(newPacket)
+            trackingPacket.arrivalTime = currentTime + 1
+            if(trackingPacket.pathInformation[-1] != self.id):
+                trackingPacket.pathInformation.append(self.id)
+            trackingPacket.delay = (currentTime - trackingPacket.creationTime) - trackingPacket.hopCount + 1
+            self.finishedQueue.append(trackingPacket)
+
+            # now, we deal with returns and learning paths
             if(newPacket.ROUTE_REQUEST == newPacket.PATH_KNOWN):
                 print("ERROR! Packet received with ROUTE_REQUEST = PATH_KNOWN")
             else:
@@ -137,8 +130,6 @@ class Router:
                     pathCopy.pop()
                 if(self.id in pathCopy):
                     pathCopy.pop(pathCopy.index(self.id))
-                    print(pathCopy)
-                    print("-------------------------------------------------------------------")
                 self.learnPaths(pathCopy)
                 newPacket.pathInformation.append(self.id)
                 newPacket.arrivalTime = currentTime + 1
@@ -148,9 +139,6 @@ class Router:
                     returnPacket = Packet(False, True, returnPath, 0, self.id, newPacket.sourceRouter, -idcounter, currentTime + 1)
                     idcounter += 1
                     self.bufferQueue.append(returnPacket)
-                    self.finishedQueue.append(newPacket)
-                else:
-                    self.finishedQueue.append(newPacket)
                     
         else:
             # this is not the destination router
@@ -159,27 +147,15 @@ class Router:
             else:
                 if(newPacket.PATH_KNOWN == True):
                     # first, handle learning paths
-                    print("****************************************")
                     mutablePaths = list.copy(newPacket.pathInformation)
                     indexOfSelf = mutablePaths.index(self.id)
                     firstPart = mutablePaths[:indexOfSelf:]
                     secondPart = mutablePaths[indexOfSelf+1::]
-                    print("We are at router " + self.id)
-                    print("The path is")
-                    print(mutablePaths)
-                    print("First part:")
-                    print(firstPart)
-                    print("Second part:")
-                    print(secondPart)
-                    #midpoint = newPacket.placeInPath
-                    #firstPart = mutablePaths[:midpoint]
-                    #secondPart = mutablePaths[midpoint+2:]
                     secondPart.reverse()
                     self.learnPaths(firstPart)
                     self.learnPaths(secondPart)
                     # now we can pass it along
                     self.bufferQueue.append(newPacket)
-
                 else:
                     mutablePaths = list.copy(newPacket.pathInformation)
                     self.learnPaths(mutablePaths)
@@ -195,20 +171,11 @@ class Router:
                             possiblePaths.append(self.pathTables[y].get(targetDestination))
                     if(len(possiblePaths) > 0):
                         # we know a possible path
-                        print("Router " + self.id +" knows a path!")
                         random.seed(RANDOM_SEED)
                         chosenPath = random.choice(possiblePaths)
-
-                        print("The path is")
-                        print(chosenPath)
                         originalPath = list.copy(newPacket.pathInformation)
                         originalPath.reverse()
                         continuePath = newPacket.pathInformation + [self.id] + list.copy(chosenPath) + [newPacket.destinationRouter]
-                        print("The original path is")
-                        print(originalPath)
-                        print("The continue path is ")
-                        print(continuePath)
-
                         forReturn = list.copy(chosenPath)
                         forReturn.reverse()
                         returnPath = [newPacket.destinationRouter] + forReturn + [self.id] + originalPath
@@ -218,26 +185,18 @@ class Router:
                         returnPacket = Packet(False, True, returnPath, returnPath.index(self.id), newPacket.destinationRouter, newPacket.sourceRouter, -idcounter, currentTime)
                         self.bufferQueue.append(returnPacket)
                         del newPacket
-                        
                     else:
                         # we don't know a possible path
                         newPacket.pathInformation.append(self.id)
                         self.bufferQueue.append(newPacket)
-                    
-                    
-                    
-
+ 
     def spawnNewPacket(self, destinationRouter, currentTime, idcounter):
         
         possiblePaths = []
-        print("Router " + self.id + " has spawned packet " + str(idcounter) + " which is going to " + destinationRouter)
-        print("#######################################################################################################################################")
         self.seenPackets.append(idcounter)
 
         if destinationRouter in self.immediateNeighbors:
-            #print("The destination is my neighbor!")
             newPath = [self.id, destinationRouter]
-            #print(newPath)
             newPacket = Packet(False, True, newPath, 0, self.id, destinationRouter, idcounter, currentTime)
             self.bufferQueue.append(newPacket)
             return
@@ -245,9 +204,6 @@ class Router:
         for y in range(NUM_BEST_PATHS):
             if self.pathTables[y].get(destinationRouter) is not None:
                 possiblePaths.append(self.pathTables[y].get(destinationRouter))
-                print("Dictionary Scan for " + destinationRouter)
-                print(self.pathTables[y].get(destinationRouter))
-
 
         if(len(possiblePaths) > 0):
             random.seed(RANDOM_SEED)
@@ -255,12 +211,9 @@ class Router:
             mutable = list.copy(chosenPath)
             mutable.append(destinationRouter)
             mutable.insert(0, self.id)
-            print("The chosen path is: ")
-            print(mutable)
             newPacket = Packet(False, True, mutable, 0, self.id, destinationRouter, idcounter, currentTime)
             self.bufferQueue.append(newPacket)
         else:
-            print("Chosen path not known")
             newPacket = Packet(True, False, [self.id], 0, self.id, destinationRouter, idcounter, currentTime)
             self.bufferQueue.append(newPacket)
 
@@ -271,14 +224,13 @@ def anyBuffersHavePackets(routerList):
             return True
     return False
             
-
 # begin of main
 # read in file of nodes and connections
 routerList = []
 routerMapping = {}
 packetQueue = []
-statTrackList = []
-idcounter = 0
+userPackets = 0
+idcounter = 1
 currentTime = 0
 
 numArguments = len(sys.argv)
@@ -310,7 +262,6 @@ for x in pfile:
     packetQueue.append([int(x[0]), x[1], x[2]])
 
 packetQueue.sort(key=lambda x: x[0])
-userNumPackets = len(packetQueue)
 networkAlive = True
 
 while((anyBuffersHavePackets(routerList) or len(packetQueue) > 0) and networkAlive):
@@ -319,8 +270,8 @@ while((anyBuffersHavePackets(routerList) or len(packetQueue) > 0) and networkAli
     while(len(packetQueue) > 0 and packetQueue[0][0] == currentTime):
         routerToAdd = routerMapping.get(packetQueue[0][1])
         routerList[routerToAdd].spawnNewPacket(packetQueue[0][2], currentTime, idcounter)
-        statTrackList.append(idcounter)
         idcounter += 1
+        userPackets += 1
         packetQueue.pop(0)
     
     # make a list of all the routers that have something to process
@@ -350,40 +301,48 @@ while((anyBuffersHavePackets(routerList) or len(packetQueue) > 0) and networkAli
 # sim has finished, collect stats
 finishedPackets = []
 remainingEnergies = []
+userCount = 0
+refCount = 0
+totalUserDelay = 0
+totalRefDelay = 0
+
 for router in routerList:
-    finishedPackets = finishedPackets + router.finishedQueue
     remainingEnergies.append(router.energyLevel)
+    for packet in router.finishedQueue:
+        if(packet.id > 0):
+            userCount += 1
+            totalUserDelay += packet.delay      
+        else:
+            refCount += 1
+            totalRefDelay += packet.delay
 
-avgDelay = 0
-statAvgDelay = 0
+averageUserDelay = totalUserDelay / userCount
+averageRefDelay = totalRefDelay / refCount
+averageOverallDelay = (totalRefDelay + totalUserDelay) / (userCount + refCount)
 
-for packet in finishedPackets:
-    avgDelay += (packet.arrivalTime - packet.creationTime - packet.hopCount)
-    if(packet.id >= 0):
-        statTrackList.remove(packet.id)
-        statAvgDelay += (packet.arrivalTime - packet.creationTime - packet.hopCount)
+# Display results
 
-print("===== Simulation has Ended =====")
+print("|===== Simulation has Ended =====")
 if(networkAlive):
-    print("The simulation has ended due to all packets reaching their destinations.")
+    print("| The simulation has ended due to all packets reaching their destinations.")
 else:
-    print("The simulation has ended as a router has depleted all of its energy.")
-print("\n===== Summary of Simulation =====")
-print("A total of " + str(userNumPackets) + " packet(s) were loaded into the simulation.")
-print("Of those " + str(userNumPackets) + " packets, " + str(userNumPackets - len(statTrackList)) + " reached their destination [" + str((userNumPackets/(userNumPackets-len(statTrackList)))*100) + " %]")
-if(userNumPackets == len(statTrackList)):
-    print("An average delay for these packets cannot be calculated as none of them reached their destination")
-else:
-    print("The average delay was " + str(statAvgDelay/(userNumPackets - len(statTrackList))))
-    print("The delay indicates any time that a packet was waiting in a buffer due to other packets already at that router needing to be sent.")
-print("\n===== Overall Network =====")
-if(len(finishedPackets) == 0):
-    print("The overall network statistics cannot be calculated as no packets (route reponses or requested transmissions) were received.")
-else:
-    print("The total number of packets received (route reponses + requested transmissions) was " + str(len(finishedPackets)) + ".")
-    print("Out of all packets (route reponses + requested transmissions), the average delay was " + str(avgDelay/len(finishedPackets)))
-print("\n==== Energy Levels ====")
-print("All routers had an initial energy level of " + str(DEFAULT_ENERGY_LEVEL))
-print("The average remaining energy level is " + str(sum(remainingEnergies)/len(routerList)))
-print("The highest remaining energy level is " + str(max(remainingEnergies)))
-print("The lowest remaining energy level is " + str(min(remainingEnergies)))
+    print("| The simulation has ended as a router has depleted all of its energy.")
+print("|================================")
+
+print("\n|==== Packet Information ====")
+print("| A total of " + str(userPackets) + " packets were loaded")
+print("| Of those " + str(userPackets) + " packets, " + str(userCount) + " reached their destination [" + str((userCount/userPackets)*100) + "%]")
+print("|\n| There were a total of " + str(refCount) + " additional packets for fulfilling route requests")
+print("|\n| The average delay for user created packets was " + str(averageUserDelay))
+print("| The average delay for route reponse packets was " + str(averageRefDelay))
+print("| The overall average delay was " + str(averageOverallDelay))
+print("|============================")
+
+print("\n|==== Energy Levels ====")
+print("|All routers had an initial energy level of " + str(DEFAULT_ENERGY_LEVEL))
+print("|The average remaining energy level is " + str(sum(remainingEnergies)/len(routerList)))
+print("|The highest remaining energy level is " + str(max(remainingEnergies)))
+print("|The lowest remaining energy level is " + str(min(remainingEnergies)))
+print("|The median remaining energy level is " + str(statistics.median(remainingEnergies)))
+print("|The variance of remaining energy levels is " + str(statistics.variance(remainingEnergies)))
+print("|=======================")

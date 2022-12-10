@@ -29,6 +29,9 @@ for i in range(1, NUM_PACKETS + 1):
     sourceRouter = random.choice(routerList)
     destinationRouter = random.choice(routerList)
     spawnTime = random.randint(0, MAX_SPAWN_TIME)
+    while(sourceRouter == destinationRouter):
+        sourceRouter = random.choice(routerList)
+
     packetFile.write(str(spawnTime) + "," + sourceRouter + "," + destinationRouter + "\n")
 
 packetFile.close()
