@@ -75,10 +75,21 @@ class Router:
             # if the path is unique and there is an empty table, we store it
             # if the path is unique and there is not an empty table, we store it if it is shorter than one of the current paths
             # otherwise, we don't store it
+            
+            
+
             if (isNewPathUnique == True) and (emptyPathTableIndex != -1):
                 self.pathTables[emptyPathTableIndex][destNode] = pathToDest
-            elif (isNewPathUnique == True) and (len(thisPath) < longestStoredPath):
+                print("Router " + self.id + " learned a path to router " + destNode)
+                print(pathToDest)
+                
+            elif (isNewPathUnique == True) and (len(pathToDest) < longestStoredPath):
                 self.pathTables[longestStoredPathIndex][destNode] = pathToDest
+                print("Router " + self.id + " learned a path to router " + destNode)
+                print(pathToDest)
+
+
+
 
 
             
@@ -116,11 +127,19 @@ class Router:
 
         if(newPacket.destinationRouter == self.id):
             # this is the destination router
-            #print("Router " + self.id + " has received packet " + str(newPacket.id) + " this is destination")
+            print("Router " + self.id + " has received packet " + str(newPacket.id) + " this is destination")
+            print(newPacket.pathInformation)
             if(newPacket.ROUTE_REQUEST == newPacket.PATH_KNOWN):
                 print("ERROR! Packet received with ROUTE_REQUEST = PATH_KNOWN")
             else:
-                self.learnPaths(newPacket.pathInformation)
+                pathCopy = list.copy(newPacket.pathInformation)
+                if(newPacket.id < 0):
+                    pathCopy.pop()
+                if(self.id in pathCopy):
+                    pathCopy.pop(pathCopy.index(self.id))
+                    print(pathCopy)
+                    print("-------------------------------------------------------------------")
+                self.learnPaths(pathCopy)
                 newPacket.pathInformation.append(self.id)
                 newPacket.arrivalTime = currentTime + 1
                 if(newPacket.ROUTE_REQUEST == True):
@@ -140,10 +159,21 @@ class Router:
             else:
                 if(newPacket.PATH_KNOWN == True):
                     # first, handle learning paths
+                    print("****************************************")
                     mutablePaths = list.copy(newPacket.pathInformation)
-                    midpoint = newPacket.placeInPath
-                    firstPart = mutablePaths[:midpoint+1]
-                    secondPart = mutablePaths[midpoint+2:]
+                    indexOfSelf = mutablePaths.index(self.id)
+                    firstPart = mutablePaths[:indexOfSelf:]
+                    secondPart = mutablePaths[indexOfSelf+1::]
+                    print("We are at router " + self.id)
+                    print("The path is")
+                    print(mutablePaths)
+                    print("First part:")
+                    print(firstPart)
+                    print("Second part:")
+                    print(secondPart)
+                    #midpoint = newPacket.placeInPath
+                    #firstPart = mutablePaths[:midpoint]
+                    #secondPart = mutablePaths[midpoint+2:]
                     secondPart.reverse()
                     self.learnPaths(firstPart)
                     self.learnPaths(secondPart)
@@ -165,26 +195,29 @@ class Router:
                             possiblePaths.append(self.pathTables[y].get(targetDestination))
                     if(len(possiblePaths) > 0):
                         # we know a possible path
+                        print("Router " + self.id +" knows a path!")
                         random.seed(RANDOM_SEED)
                         chosenPath = random.choice(possiblePaths)
-                        returnPath = list.copy(chosenPath)
-                        returnPath.reverse()
-                        returnPath.insert(0, newPacket.destinationRouter)
-                        num = len(returnPath)
-                        returnPath.append(self.id)
-                        otherPart = list.copy(newPacket.pathInformation)
-                        otherPart.reverse()
-                        returnPath = returnPath + otherPart
-                        newPacket.pathInformation = chosenPath
-                        newPacket.pathInformation.append(newPacket.destinationRouter)
-                        newPacket.pathInformation.insert(0, self.id)
-                        newPacket.placeInPath = 0
-                        newPacket.PATH_KNOWN = True
-                        newPacket.ROUTE_REQUEST = False
-                        self.bufferQueue.append(newPacket)
-                        # now send the return packet
-                        returnPacket = Packet(False, True, returnPath, num, self.id, newPacket.sourceRouter, -idcounter, currentTime)
+
+                        print("The path is")
+                        print(chosenPath)
+                        originalPath = list.copy(newPacket.pathInformation)
+                        originalPath.reverse()
+                        continuePath = newPacket.pathInformation + [self.id] + list.copy(chosenPath) + [newPacket.destinationRouter]
+                        print("The original path is")
+                        print(originalPath)
+                        print("The continue path is ")
+                        print(continuePath)
+
+                        forReturn = list.copy(chosenPath)
+                        forReturn.reverse()
+                        returnPath = [newPacket.destinationRouter] + forReturn + [self.id] + originalPath
+                        continuePacket = Packet(False, True, continuePath, continuePath.index(self.id), newPacket.sourceRouter, newPacket.destinationRouter, newPacket.id, newPacket.creationTime)
+                        continuePacket.hopCount = newPacket.hopCount
+                        self.bufferQueue.append(continuePacket)
+                        returnPacket = Packet(False, True, returnPath, returnPath.index(self.id), newPacket.destinationRouter, newPacket.sourceRouter, -idcounter, currentTime)
                         self.bufferQueue.append(returnPacket)
+                        del newPacket
                         
                     else:
                         # we don't know a possible path
@@ -197,12 +230,23 @@ class Router:
     def spawnNewPacket(self, destinationRouter, currentTime, idcounter):
         
         possiblePaths = []
-        print("Router " + self.id + " has spawned packet " + str(idcounter))
+        print("Router " + self.id + " has spawned packet " + str(idcounter) + " which is going to " + destinationRouter)
+        print("#######################################################################################################################################")
         self.seenPackets.append(idcounter)
+
+        if destinationRouter in self.immediateNeighbors:
+            #print("The destination is my neighbor!")
+            newPath = [self.id, destinationRouter]
+            #print(newPath)
+            newPacket = Packet(False, True, newPath, 0, self.id, destinationRouter, idcounter, currentTime)
+            self.bufferQueue.append(newPacket)
+            return
 
         for y in range(NUM_BEST_PATHS):
             if self.pathTables[y].get(destinationRouter) is not None:
                 possiblePaths.append(self.pathTables[y].get(destinationRouter))
+                print("Dictionary Scan for " + destinationRouter)
+                print(self.pathTables[y].get(destinationRouter))
 
 
         if(len(possiblePaths) > 0):
@@ -219,6 +263,7 @@ class Router:
             print("Chosen path not known")
             newPacket = Packet(True, False, [self.id], 0, self.id, destinationRouter, idcounter, currentTime)
             self.bufferQueue.append(newPacket)
+
 
 def anyBuffersHavePackets(routerList):
     for x in routerList:
