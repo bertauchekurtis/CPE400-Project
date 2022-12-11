@@ -42,10 +42,6 @@ When a packet is received at a destination router:
         - Add packet to completed queue.
     4.) ROUTE_REQUEST = FALSE, PATH_KNOWN = FALSE:
         - Thrown an error. This should not happen
-
-General Notes:
-    - It is possible, and likely, that a packet at any given point, or at its destination, will have a hop count differing from its path information.
-        This happens because path information can be treated as either directions, travel history, or both, depending on the settings of flags.
             
 Learning Paths:
     - A router should take any received packets and attempt to learn as many new paths as possible from it

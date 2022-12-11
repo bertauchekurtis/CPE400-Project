@@ -331,7 +331,6 @@ print("|================================")
 
 print("\n|==== Packet Information ====")
 print("| A total of " + str(userPackets) + " packets were loaded")
-print("| Of those " + str(userPackets) + " packets, " + str(userCount) + " reached their destination [" + str((userCount/userPackets)*100) + "%]")
 print("|\n| There were a total of " + str(refCount) + " additional packets for fulfilling route requests")
 print("|\n| The average delay for user created packets was " + str(averageUserDelay))
 print("| The average delay for route reponse packets was " + str(averageRefDelay))
